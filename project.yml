@@ -19,11 +19,11 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
-        INFOPLIST_KEY_CFBundleDisplayName: "Local App"
+        INFOPLIST_KEY_CFBundleDisplayName: "Grocery List"
         DEVELOPMENT_TEAM: ""
         CODE_SIGN_STYLE: Automatic
     info:
       path: GroceryList/Info.plist
       properties:
         UILaunchScreen: {}
-        CFBundleDisplayName: "Local App"
+        CFBundleDisplayName: "Grocery List"
