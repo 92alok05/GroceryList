@@ -44,37 +44,45 @@ const COLUMNS = [
 ];
 
 function doGet(e) {
-  const params = e.parameter || {};
-  if (params.token !== SECRET) {
-    return jsonResponse({ error: 'unauthorized' });
+  try {
+    const params = e.parameter || {};
+    if (params.token !== SECRET) {
+      return jsonResponse({ error: 'unauthorized' });
+    }
+    if (params.action === 'list') {
+      return jsonResponse({ items: listItems() });
+    }
+    return jsonResponse({ error: 'unknown action' });
+  } catch (err) {
+    return jsonResponse({ error: 'server exception: ' + err.message });
   }
-  if (params.action === 'list') {
-    return jsonResponse({ items: listItems() });
-  }
-  return jsonResponse({ error: 'unknown action' });
 }
 
 function doPost(e) {
-  let body;
   try {
-    body = JSON.parse(e.postData.contents);
+    let body;
+    try {
+      body = JSON.parse(e.postData.contents);
+    } catch (err) {
+      return jsonResponse({ error: 'invalid JSON body' });
+    }
+
+    if (body.token !== SECRET) {
+      return jsonResponse({ error: 'unauthorized' });
+    }
+
+    if (body.action === 'upsert') {
+      upsertItem(body.item);
+      return jsonResponse({ success: true });
+    }
+    if (body.action === 'delete') {
+      deleteItem(body.id);
+      return jsonResponse({ success: true });
+    }
+    return jsonResponse({ error: 'unknown action' });
   } catch (err) {
-    return jsonResponse({ error: 'invalid JSON body' });
+    return jsonResponse({ error: 'server exception: ' + err.message });
   }
-
-  if (body.token !== SECRET) {
-    return jsonResponse({ error: 'unauthorized' });
-  }
-
-  if (body.action === 'upsert') {
-    upsertItem(body.item);
-    return jsonResponse({ success: true });
-  }
-  if (body.action === 'delete') {
-    deleteItem(body.id);
-    return jsonResponse({ success: true });
-  }
-  return jsonResponse({ error: 'unknown action' });
 }
 
 function listItems() {
