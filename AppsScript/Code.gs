@@ -117,7 +117,9 @@ function deleteItem(id) {
 }
 
 function findRowIndexById(sheet, id) {
-  const ids = sheet.getRange(2, 1, Math.max(sheet.getLastRow() - 1, 0), 1).getValues();
+  const numDataRows = sheet.getLastRow() - 1;
+  if (numDataRows < 1) return -1; // Sheet has only the header row (or is empty) — nothing to search.
+  const ids = sheet.getRange(2, 1, numDataRows, 1).getValues();
   for (let i = 0; i < ids.length; i++) {
     if (ids[i][0] === id) {
       return i + 2; // +2: 1-indexed, plus header row
