@@ -45,12 +45,17 @@ struct StoreChecklistView: View {
         .onAppear {
             CadenceRefreshService.refreshDueItems(context: modelContext)
         }
+        .refreshable {
+            await SheetSyncService.syncAll(context: modelContext)
+        }
     }
 
     private func toggle(_ item: GroceryItem) {
         item.isChecked.toggle()
         item.lastCheckedDate = item.isChecked ? Date() : nil
+        item.updatedAt = Date()
         try? modelContext.save()
+        SheetSyncService.pushItemInBackground(item)
     }
 }
 

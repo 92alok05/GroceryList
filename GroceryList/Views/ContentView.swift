@@ -11,6 +11,10 @@ struct ContentView: View {
                 .tabItem {
                     Label("Store Mode", systemImage: "cart")
                 }
+            SettingsView()
+                .tabItem {
+                    Label("Settings", systemImage: "gearshape")
+                }
         }
     }
 }

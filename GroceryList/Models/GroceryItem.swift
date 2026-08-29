@@ -40,17 +40,27 @@ final class GroceryItem {
     var isChecked: Bool
     /// The last time the item was checked off (used to compute when to auto-uncheck).
     var lastCheckedDate: Date?
+    /// When this item was last modified locally. Used to resolve sync conflicts
+    /// (the most recently updated copy — local or remote — wins).
+    var updatedAt: Date
+    /// Whether this item has been successfully pushed to / pulled from the remote
+    /// Google Sheet at least once. Used during sync to distinguish "not yet synced"
+    /// items from items that were deleted on another device.
+    var isSyncedToRemote: Bool
 
     init(
+        id: UUID = UUID(),
         name: String,
         recommendedStore: String,
         recommendedQuantity: String = "1",
         cadence: RepeatCadence = .oneTime,
         customCadenceDays: Int = 7,
         isChecked: Bool = false,
-        lastCheckedDate: Date? = nil
+        lastCheckedDate: Date? = nil,
+        updatedAt: Date = Date(),
+        isSyncedToRemote: Bool = false
     ) {
-        self.id = UUID()
+        self.id = id
         self.name = name
         self.recommendedStore = recommendedStore
         self.recommendedQuantity = recommendedQuantity
@@ -58,6 +68,8 @@ final class GroceryItem {
         self.customCadenceDays = customCadenceDays
         self.isChecked = isChecked
         self.lastCheckedDate = lastCheckedDate
+        self.updatedAt = updatedAt
+        self.isSyncedToRemote = isSyncedToRemote
     }
 
     var cadence: RepeatCadence {

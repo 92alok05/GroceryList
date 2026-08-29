@@ -51,6 +51,9 @@ struct ItemListView: View {
             }
             .navigationTitle("Grocery List")
             .searchable(text: $searchText, prompt: "Search items or stores")
+            .refreshable {
+                await SheetSyncService.syncAll(context: modelContext)
+            }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -91,14 +94,18 @@ struct ItemListView: View {
 
     private func deleteItems(at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(filteredItems[index])
+            let item = filteredItems[index]
+            SheetSyncService.pushDeletionInBackground(id: item.id)
+            modelContext.delete(item)
         }
     }
 
     private func toggle(_ item: GroceryItem) {
         item.isChecked.toggle()
         item.lastCheckedDate = item.isChecked ? Date() : nil
+        item.updatedAt = Date()
         try? modelContext.save()
+        SheetSyncService.pushItemInBackground(item)
     }
 }
 

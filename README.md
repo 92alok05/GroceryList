@@ -41,6 +41,13 @@ Seeded once on first launch (won't reappear if deleted):
 - Local on-device storage via SwiftData; survives app restarts
 - Self-healing store: if a schema/migration mismatch is ever detected, the app resets the local store instead of crashing
 
+### Family sharing via Google Sheets
+- The list can be shared across family members' iPhones using a Google Sheet as a lightweight remote "server" (see [Sharing setup](#sharing-setup-google-sheets-sync) below)
+- Local storage remains the offline cache — the app fully works without internet and syncs automatically when back online
+- Conflict resolution: whichever copy (local device or the sheet) was updated most recently wins
+- Deletions sync too — removing an item on one phone removes it everywhere after the next sync
+- Sync triggers: automatically when the app is foregrounded, via pull-to-refresh on the All Items / Store checklist screens, or manually via the **Sync Now** button in Settings
+
 ## App identity
 - Display name: **Grocery List**
 - Bundle ID: `com.aljoshi.grocerylist.GroceryList`
@@ -51,20 +58,25 @@ Seeded once on first launch (won't reappear if deleted):
 ```
 GroceryList/
 ├── project.yml                       # XcodeGen project spec (source of truth)
-└── GroceryList/
-    ├── GroceryListApp.swift          # App entry point, ModelContainer setup
-    ├── Info.plist
-    ├── Models/
-    │   └── GroceryItem.swift         # SwiftData model + RepeatCadence enum
-    ├── ViewModels/
-    │   ├── CadenceRefreshService.swift  # Auto-uncheck logic based on cadence
-    │   └── SeedData.swift               # One-time pre-installed item seeding
-    └── Views/
-        ├── ContentView.swift          # Root TabView
-        ├── ItemListView.swift         # All Items tab (search, checkboxes)
-        ├── AddEditItemView.swift      # Add/edit item form
-        ├── StoreModeView.swift        # Store picker tab
-        └── StoreChecklistView.swift   # Per-store checklist
+├── GroceryList/
+│   ├── GroceryListApp.swift          # App entry point, ModelContainer setup
+│   ├── Info.plist
+│   ├── Models/
+│   │   └── GroceryItem.swift         # SwiftData model + RepeatCadence enum
+│   ├── ViewModels/
+│   │   ├── CadenceRefreshService.swift  # Auto-uncheck logic based on cadence
+│   │   ├── SeedData.swift               # One-time pre-installed item seeding
+│   │   ├── SyncSettings.swift            # Stores the Web App URL + shared secret
+│   │   └── SheetSyncService.swift        # Push/pull/merge sync with Google Sheet
+│   └── Views/
+│       ├── ContentView.swift          # Root TabView
+│       ├── ItemListView.swift         # All Items tab (search, checkboxes)
+│       ├── AddEditItemView.swift      # Add/edit item form
+│       ├── StoreModeView.swift        # Store picker tab
+│       ├── StoreChecklistView.swift   # Per-store checklist
+│       └── SettingsView.swift         # Sync configuration + manual sync button
+└── AppsScript/
+    └── Code.gs                        # Google Apps Script "server" (deploy this to your Sheet)
 ```
 
 ## Building & running
@@ -94,6 +106,40 @@ Then in Xcode:
 xcodebuild -project GroceryList.xcodeproj -scheme GroceryList \
   -destination 'generic/platform=iOS Simulator' build
 ```
+
+## Sharing setup (Google Sheets sync)
+
+To share the list across family members' iPhones, one person sets up a Google Sheet + Apps Script "server" once, then everyone enters the same connection details in the app's Settings tab.
+
+### 1. Create the Google Sheet
+1. Create a new Google Sheet.
+2. Rename the first tab to exactly `GroceryItems`.
+3. In row 1, add these exact column headers (columns A–I):
+   ```
+   id | name | recommendedStore | recommendedQuantity | cadence | customCadenceDays | isChecked | lastCheckedDate | updatedAt
+   ```
+
+### 2. Deploy the Apps Script
+1. In the Sheet, open **Extensions → Apps Script**.
+2. Delete the starter code and paste in the contents of [`AppsScript/Code.gs`](AppsScript/Code.gs) from this repo.
+3. Change the `SECRET` constant at the top to a private value only your family will use (treat it like a password).
+4. Click **Deploy → New deployment**.
+   - Type: **Web app**
+   - Execute as: **Me**
+   - Who has access: **Anyone** (safe — requests without the correct secret are rejected)
+5. Click **Deploy** and authorize the script when prompted.
+6. Copy the **Web app URL** (ends in `/exec`).
+
+### 3. Connect the app
+On each family member's iPhone:
+1. Open the app → **Settings** tab.
+2. Paste the same **Web App URL** and the same **shared secret** you chose above.
+3. Tap **Sync Now**, or just use the app normally — it syncs automatically when foregrounded, and via pull-to-refresh.
+
+**Notes:**
+- If you edit `Code.gs` later, create a **new deployment version** (Deploy → Manage deployments → Edit → New version) — editing the script alone doesn't update the live Web App URL.
+- The app works fully offline; changes made without internet sync automatically the next time it's online.
+- Conflict resolution is "most recently updated wins" — if two people edit the same item while both offline, the later edit (by timestamp) takes effect after both sync.
 
 ## Notes
 - Re-running `xcodegen generate` regenerates `GroceryList.xcodeproj` from `project.yml`, which will reset any signing team selected manually in Xcode — just re-select your Team afterward.

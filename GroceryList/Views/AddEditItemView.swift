@@ -107,12 +107,15 @@ struct AddEditItemView: View {
     private func save() {
         let quantity = recommendedQuantity.trimmingCharacters(in: .whitespaces)
         let store = resolvedStore
+        let savedItem: GroceryItem
         if let item {
             item.name = name
             item.recommendedStore = store
             item.recommendedQuantity = quantity.isEmpty ? "1" : quantity
             item.cadence = cadence
             item.customCadenceDays = customCadenceDays
+            item.updatedAt = Date()
+            savedItem = item
         } else {
             let newItem = GroceryItem(
                 name: name,
@@ -122,7 +125,10 @@ struct AddEditItemView: View {
                 customCadenceDays: customCadenceDays
             )
             modelContext.insert(newItem)
+            savedItem = newItem
         }
+        try? modelContext.save()
+        SheetSyncService.pushItemInBackground(savedItem)
         dismiss()
     }
 }

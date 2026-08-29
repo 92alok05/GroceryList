@@ -49,6 +49,9 @@ struct GroceryListApp: App {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 CadenceRefreshService.refreshDueItems(context: sharedModelContainer.mainContext)
+                Task {
+                    await SheetSyncService.syncAll(context: sharedModelContainer.mainContext)
+                }
             }
         }
     }
