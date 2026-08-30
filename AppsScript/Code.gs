@@ -137,6 +137,11 @@ function rowToItem(row) {
   item.isChecked = (item.isChecked === true || item.isChecked === 'true' || item.isChecked === 'TRUE');
   item.customCadenceDays = Number(item.customCadenceDays) || 1;
   item.id = String(item.id);
+  // Google Sheets auto-detects numeric-looking text (e.g. "1", "2") and stores it
+  // as a real number, so getValues() can return a JS number here even though the
+  // app's model expects a string. Force it back to a string so JSONDecoder (which
+  // is strict about types) doesn't fail to decode the entire list.
+  item.recommendedQuantity = String(item.recommendedQuantity);
   item.lastCheckedDate = item.lastCheckedDate ? String(item.lastCheckedDate) : null;
   item.updatedAt = String(item.updatedAt);
   return item;
