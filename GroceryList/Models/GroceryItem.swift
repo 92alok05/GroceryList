@@ -86,4 +86,55 @@ final class GroceryItem {
         }
         return now >= nextDue
     }
+
+    /// The date this item will next need to be repurchased, based on when it was
+    /// last checked off and its repeat cadence. `nil` for One Time items or items
+    /// that haven't been checked yet.
+    func nextDueDate(now: Date = Date()) -> Date? {
+        guard let lastChecked = lastCheckedDate else { return nil }
+        guard let days = cadence.days(customDays: customCadenceDays) else { return nil }
+        return Calendar.current.date(byAdding: .day, value: days, to: lastChecked)
+    }
+
+    /// Current at-a-glance status of this item, used to decide which icon to show
+    /// and how it should behave when tapped.
+    var status: ItemStatus {
+        guard isChecked else { return .needed }
+        guard let days = cadence.days(customDays: customCadenceDays), let nextDue = nextDueDate() else {
+            // One Time items (or items with no cadence) stay simply "bought".
+            return .bought
+        }
+        let now = Date()
+        if now >= nextDue { return .needed }
+        // "Due Soon" window = the last 25% of the cadence length before it's due.
+        let bufferDays = max(Double(days) * 0.25, 0.25)
+        if let dueSoonStart = Calendar.current.date(byAdding: .hour, value: -Int(bufferDays * 24), to: nextDue),
+           now >= dueSoonStart {
+            return .dueSoon
+        }
+        return .bought
+    }
+
+    /// Pushes the item's next-due date forward by one more full cadence length,
+    /// without marking it "freshly bought" today. Used when the user needs more
+    /// time before an item that's "Due Soon" actually needs to be repurchased.
+    /// Moving `lastCheckedDate` forward by the cadence length has the effect of
+    /// moving `nextDueDate` forward by the same amount, since nextDueDate is
+    /// always computed as lastCheckedDate + cadence days.
+    func snooze() {
+        guard let days = cadence.days(customDays: customCadenceDays),
+              let currentLastChecked = lastCheckedDate else { return }
+        lastCheckedDate = Calendar.current.date(byAdding: .day, value: days, to: currentLastChecked)
+        updatedAt = Date()
+    }
+}
+
+/// At-a-glance status for a grocery item, driving both its icon and tap behavior.
+enum ItemStatus {
+    /// Not bought, or cadence has fully elapsed — needs to be purchased.
+    case needed
+    /// Bought, but within the "due soon" window before it needs to be bought again.
+    case dueSoon
+    /// Bought and comfortably not due again yet.
+    case bought
 }

@@ -25,8 +25,7 @@ struct ItemListView: View {
                         Button {
                             toggle(item)
                         } label: {
-                            Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(item.isChecked ? .green : .secondary)
+                            statusIcon(for: item.status)
                                 .imageScale(.large)
                         }
                         .buttonStyle(.plain)
@@ -45,6 +44,16 @@ struct ItemListView: View {
                             }
                         }
                         .buttonStyle(.plain)
+                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        if item.status == .dueSoon {
+                            Button {
+                                snooze(item)
+                            } label: {
+                                Label("Extend", systemImage: "clock.arrow.circlepath")
+                            }
+                            .tint(.orange)
+                        }
                     }
                 }
                 .onDelete(perform: deleteItems)
@@ -92,6 +101,18 @@ struct ItemListView: View {
         }
     }
 
+    @ViewBuilder
+    private func statusIcon(for status: ItemStatus) -> some View {
+        switch status {
+        case .needed:
+            Image(systemName: "circle").foregroundStyle(.secondary)
+        case .dueSoon:
+            Image(systemName: "clock.badge.exclamationmark.fill").foregroundStyle(.orange)
+        case .bought:
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+        }
+    }
+
     private func deleteItems(at offsets: IndexSet) {
         for index in offsets {
             let item = filteredItems[index]
@@ -101,9 +122,21 @@ struct ItemListView: View {
     }
 
     private func toggle(_ item: GroceryItem) {
-        item.isChecked.toggle()
-        item.lastCheckedDate = item.isChecked ? Date() : nil
+        switch item.status {
+        case .needed, .dueSoon:
+            item.isChecked = true
+            item.lastCheckedDate = Date()
+        case .bought:
+            item.isChecked = false
+            item.lastCheckedDate = nil
+        }
         item.updatedAt = Date()
+        try? modelContext.save()
+        SheetSyncService.pushItemInBackground(item)
+    }
+
+    private func snooze(_ item: GroceryItem) {
+        item.snooze()
         try? modelContext.save()
         SheetSyncService.pushItemInBackground(item)
     }
