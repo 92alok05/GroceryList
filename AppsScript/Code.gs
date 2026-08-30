@@ -29,7 +29,7 @@
  */
 
 const SHEET_NAME = 'GroceryItems';
-const SECRET = 'CHANGE_ME_TO_A_PRIVATE_SECRET';
+const SECRET = 'manalok1208';
 
 const COLUMNS = [
   'id',
