@@ -10,10 +10,29 @@ struct ItemListView: View {
     @State private var searchText = ""
 
     private var filteredItems: [GroceryItem] {
-        guard !searchText.trimmingCharacters(in: .whitespaces).isEmpty else { return items }
-        return items.filter { item in
-            item.name.localizedCaseInsensitiveContains(searchText) ||
-            item.recommendedStore.localizedCaseInsensitiveContains(searchText)
+        let base: [GroceryItem]
+        if searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+            base = items
+        } else {
+            base = items.filter { item in
+                item.name.localizedCaseInsensitiveContains(searchText) ||
+                item.recommendedStore.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+        // Group by status (Needed, then Due Soon, then Bought), alphabetical within each group.
+        return base.sorted { lhs, rhs in
+            let lhsRank = statusSortRank(lhs.status)
+            let rhsRank = statusSortRank(rhs.status)
+            if lhsRank != rhsRank { return lhsRank < rhsRank }
+            return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+        }
+    }
+
+    private func statusSortRank(_ status: ItemStatus) -> Int {
+        switch status {
+        case .needed: return 0
+        case .dueSoon: return 1
+        case .bought: return 2
         }
     }
 

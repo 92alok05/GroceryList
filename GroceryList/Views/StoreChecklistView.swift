@@ -15,9 +15,27 @@ struct StoreChecklistView: View {
         _allItems = Query(filter: predicate, sort: \GroceryItem.name)
     }
 
+    /// Items grouped by status (Needed, then Due Soon, then Bought), alphabetical within each group.
+    private var sortedItems: [GroceryItem] {
+        allItems.sorted { lhs, rhs in
+            let lhsRank = statusSortRank(lhs.status)
+            let rhsRank = statusSortRank(rhs.status)
+            if lhsRank != rhsRank { return lhsRank < rhsRank }
+            return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+        }
+    }
+
+    private func statusSortRank(_ status: ItemStatus) -> Int {
+        switch status {
+        case .needed: return 0
+        case .dueSoon: return 1
+        case .bought: return 2
+        }
+    }
+
     var body: some View {
         List {
-            ForEach(allItems) { item in
+            ForEach(sortedItems) { item in
                 Button {
                     toggle(item)
                 } label: {
