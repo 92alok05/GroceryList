@@ -2,7 +2,7 @@
 
 A native SwiftUI + SwiftData iOS app for managing a recurring household grocery list, organized by store.
 
-**Version:** v1.0 ("Local App" — first releasable version)
+**Version:** v1.1 ("Local App" — Google Sheets family sync, Due Soon status, app icon)
 
 ## Features
 
@@ -15,16 +15,27 @@ A native SwiftUI + SwiftData iOS app for managing a recurring household grocery 
 - Any new store name typed in becomes available in the dropdown for future items automatically
 
 ### All Items view (global list)
-- Shows every item with a checkbox indicating bought/not-bought
+- Shows every item with a status icon: empty circle (Needed), orange hourglass (Due Soon), or green checkmark (Bought)
 - Checking/unchecking here is reflected everywhere (shared state)
 - Built-in search bar — filter by item name or store name, with check/uncheck available directly on search results
+- Items are grouped/sorted: Needed first, then Due Soon, then Bought — alphabetical within each group
 
 ### Store Mode (per-store checklist)
 - Pick a store, see only that store's items as a checklist for in-aisle shopping
 - Tap to check off items while shopping
+- Same Needed → Due Soon → Bought sort order as the All Items view
+
+### Item status & Due Soon
+- Each item has one of three statuses, shown as its icon:
+  - **Needed** (empty circle) — not bought, or its cadence has fully elapsed
+  - **Due Soon** (orange hourglass) — bought, but within the last 25% of its cadence length before it's due again (e.g. ~2 days before due for a Weekly item, ~7 days for Monthly)
+  - **Bought** (green checkmark) — bought and comfortably not due again yet
+- Tapping the icon on a Needed or Due Soon item marks it Bought and resets its cadence clock to now
+- Tapping the checkmark on a Bought item undoes it back to Needed
+- **Swipe left → Extend** on a Due Soon item pushes its due date forward by one more full cadence length (e.g. +7 days for Weekly), without marking it freshly bought — useful when you need more time before restocking
 
 ### Automatic cadence refresh
-- Checked items automatically become unchecked again once their cadence period elapses (e.g., a weekly item reappears as "needed" 7 days after being checked)
+- Checked items automatically become unchecked again (flip to Needed) once their cadence period fully elapses (e.g., a weekly item reappears as "needed" 7 days after being checked)
 - One Time items never auto-reset
 - Refresh runs on app foreground and whenever a store checklist is opened
 
@@ -61,18 +72,20 @@ GroceryList/
 ├── GroceryList/
 │   ├── GroceryListApp.swift          # App entry point, ModelContainer setup
 │   ├── Info.plist
+│   ├── Assets.xcassets/
+│   │   └── AppIcon.appiconset/        # App icon (shopping cart + checkmark badge)
 │   ├── Models/
-│   │   └── GroceryItem.swift         # SwiftData model + RepeatCadence enum
+│   │   └── GroceryItem.swift         # SwiftData model + RepeatCadence enum + ItemStatus (Needed/Due Soon/Bought)
 │   ├── ViewModels/
 │   │   ├── CadenceRefreshService.swift  # Auto-uncheck logic based on cadence
 │   │   ├── SyncSettings.swift            # Stores the Web App URL + shared secret
 │   │   └── SheetSyncService.swift        # Push/pull/merge sync with Google Sheet
 │   └── Views/
 │       ├── ContentView.swift          # Root TabView
-│       ├── ItemListView.swift         # All Items tab (search, checkboxes)
+│       ├── ItemListView.swift         # All Items tab (search, status icons, sorted by status)
 │       ├── AddEditItemView.swift      # Add/edit item form
 │       ├── StoreModeView.swift        # Store picker tab
-│       ├── StoreChecklistView.swift   # Per-store checklist
+│       ├── StoreChecklistView.swift   # Per-store checklist, sorted by status
 │       └── SettingsView.swift         # Sync configuration + manual sync button
 └── AppsScript/
     └── Code.gs                        # Google Apps Script "server" (deploy this to your Sheet)
@@ -121,7 +134,7 @@ To share the list across family members' iPhones, one person sets up a Google Sh
 ### 2. Deploy the Apps Script
 1. In the Sheet, open **Extensions → Apps Script**.
 2. Delete the starter code and paste in the contents of [`AppsScript/Code.gs`](AppsScript/Code.gs) from this repo.
-3. Change the `SECRET` constant at the top to a private value only your family will use (treat it like a password).
+3. Change the `SECRET` constant at the top to a private value only your family will use (treat it like a password). **Only edit this in your own copy of the script pasted into Apps Script — never commit your real secret back into `AppsScript/Code.gs` in this repo**, since this repository is public; keep `SECRET` as the placeholder `CHANGE_ME_TO_A_PRIVATE_SECRET` in git.
 4. Click **Deploy → New deployment**.
    - Type: **Web app**
    - Execute as: **Me**
