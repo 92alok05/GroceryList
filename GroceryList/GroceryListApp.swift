@@ -37,10 +37,6 @@ struct GroceryListApp: App {
 
     @Environment(\.scenePhase) private var scenePhase
 
-    init() {
-        SeedData.seedIfNeeded(context: sharedModelContainer.mainContext)
-    }
-
     var body: some Scene {
         WindowGroup {
             ContentView()

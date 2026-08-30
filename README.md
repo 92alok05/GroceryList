@@ -29,7 +29,7 @@ A native SwiftUI + SwiftData iOS app for managing a recurring household grocery 
 - Refresh runs on app foreground and whenever a store checklist is opened
 
 ### Pre-installed default items
-Seeded once on first launch (won't reappear if deleted):
+These 35 items were originally seeded on first launch of the very first install. Since Google Sheets sync now exists, **new installs no longer auto-seed** — instead they start empty and pull the shared list down from the Sheet on first sync, avoiding duplicate entries across devices. The original starter set (for reference / re-adding manually if needed) was:
 
 **Safeway** (weekly): Chicken ×2, Eggs ×18, Greek yogurt, Fruits, Milk
 
@@ -65,7 +65,6 @@ GroceryList/
 │   │   └── GroceryItem.swift         # SwiftData model + RepeatCadence enum
 │   ├── ViewModels/
 │   │   ├── CadenceRefreshService.swift  # Auto-uncheck logic based on cadence
-│   │   ├── SeedData.swift               # One-time pre-installed item seeding
 │   │   ├── SyncSettings.swift            # Stores the Web App URL + shared secret
 │   │   └── SheetSyncService.swift        # Push/pull/merge sync with Google Sheet
 │   └── Views/
