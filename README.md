@@ -59,6 +59,11 @@ These 35 items were originally seeded on first launch of the very first install.
 - Deletions sync too — removing an item on one phone removes it everywhere after the next sync
 - Sync triggers: automatically when the app is foregrounded, via pull-to-refresh on the All Items / Store checklist screens, or manually via the **Sync Now** button in Settings
 
+### Onboarding tutorial
+- A skippable, swipeable tutorial (7 pages) walks new users through the app's core features on first launch: adding items, item status (Needed/Due Soon/Bought), Store Mode, search & sorting, and family sync
+- Shown only once per install; tap **Skip** at any point, or swipe/tap **Next** through to **Get Started**
+- Can be replayed anytime via **Settings → Replay Tutorial**
+
 ## App identity
 - Display name: **Grocery List**
 - Bundle ID: `com.aljoshi.grocerylist.GroceryList`
@@ -86,7 +91,8 @@ GroceryList/
 │       ├── AddEditItemView.swift      # Add/edit item form
 │       ├── StoreModeView.swift        # Store picker tab
 │       ├── StoreChecklistView.swift   # Per-store checklist, sorted by status
-│       └── SettingsView.swift         # Sync configuration + manual sync button
+│       ├── SettingsView.swift         # Sync configuration + manual sync button + Replay Tutorial
+│       └── TutorialView.swift         # One-time skippable onboarding tutorial (TutorialState)
 └── AppsScript/
     └── Code.gs                        # Google Apps Script "server" (deploy this to your Sheet)
 ```

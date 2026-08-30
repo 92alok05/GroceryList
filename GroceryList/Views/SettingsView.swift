@@ -5,6 +5,7 @@ import SwiftData
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var settings = SyncSettings.shared
+    @ObservedObject private var tutorialState = TutorialState.shared
     @State private var isSyncing = false
 
     var body: some View {
@@ -43,6 +44,14 @@ struct SettingsView: View {
                         Text(error)
                             .font(.footnote)
                             .foregroundStyle(.red)
+                    }
+                }
+
+                Section {
+                    Button {
+                        tutorialState.replay()
+                    } label: {
+                        Label("Replay Tutorial", systemImage: "questionmark.circle")
                     }
                 }
             }
