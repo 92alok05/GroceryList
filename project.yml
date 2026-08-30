@@ -11,7 +11,9 @@ targets:
     type: application
     platform: iOS
     sources:
-      - GroceryList
+      - path: GroceryList
+        excludes:
+          - Info.plist
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.aljoshi.grocerylist.GroceryList
