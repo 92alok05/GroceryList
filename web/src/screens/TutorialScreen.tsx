@@ -14,11 +14,11 @@ const PAGES: Page[] = [
   { icon: 'extend', color: '#ff9500', title: 'Needed, Due Soon, Bought', description: 'Every item shows one of three statuses: an empty circle (Needed), an orange hourglass (Due Soon — almost time to restock), or a green checkmark (Bought). Tap the icon to check an item off. Swipe left on a Due Soon item to Extend it if you need more time.' },
   { icon: 'store', color: '#af52de', title: 'Shop by Store', description: 'Switch to Store Mode to see a focused checklist for just one store at a time — perfect for checking things off as you walk the aisles.' },
   { icon: 'search', color: '#5856d6', title: 'Search & Stay Organized', description: 'Use the search bar to quickly find any item or store. Your list is automatically sorted with what you still need at the top, Due Soon items next, and Bought items at the bottom.' },
-  { icon: 'people', color: '#ff2d55', title: 'Share With Family', description: 'Connect a Google Sheet from the Settings tab so everyone in your family can see and update the same grocery list from their own iPhone.' },
+  { icon: 'people', color: '#ff2d55', title: 'Share With Family', description: 'Create a household with a name and passcode, then have family members tap Join Household and enter the same name and passcode. Everyone sees and updates the same grocery list from their own phone. You can leave a household from the Settings tab.' },
   { icon: 'seal', color: '#34c759', title: "You're All Set!", description: "That's everything you need to know. Tap Get Started to start building your grocery list." },
 ]
 
-/** One-time, skippable onboarding tutorial (text copied verbatim from the iOS app). */
+/** One-time, skippable onboarding tutorial (adapted from the iOS app; sharing page describes households). */
 export function TutorialScreen({ onFinish }: { onFinish: () => void }) {
   const [page, setPage] = useState(0)
   const pager = useRef<HTMLDivElement>(null)
