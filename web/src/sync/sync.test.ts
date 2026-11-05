@@ -110,12 +110,12 @@ describe('householdApi', () => {
   it('creates and joins with name and passcode, returning the session', async () => {
     const fetchImpl = vi.fn((_u: unknown, _i?: RequestInit) => json(session))
     const api = createHouseholdApi(url, fetchImpl as unknown as typeof fetch)
-    expect(await api.create('The Joshis', 'Fresh&Milk42')).toEqual(session)
+    expect(await api.create('The Joshis', 'Fresh&Milk42', 'Alok')).toEqual(session)
     expect(await api.join('The Joshis', 'Fresh&Milk42')).toEqual(session)
     const bodies = fetchImpl.mock.calls.map((c) => JSON.parse((c[1] as RequestInit).body as string))
     expect(bodies).toEqual([
-      { action: 'createHousehold', name: 'The Joshis', passcode: 'Fresh&Milk42' },
-      { action: 'joinHousehold', name: 'The Joshis', passcode: 'Fresh&Milk42' },
+      { action: 'createHousehold', name: 'The Joshis', passcode: 'Fresh&Milk42', displayName: 'Alok' },
+      { action: 'joinHousehold', name: 'The Joshis', passcode: 'Fresh&Milk42', displayName: '' },
     ])
   })
 

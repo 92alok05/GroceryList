@@ -10,6 +10,7 @@ export function HouseholdScreen({ initialError }: { initialError?: string | null
   const [mode, setMode] = useState<Mode>('join')
   const [name, setName] = useState('')
   const [passcode, setPasscode] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(initialError ?? null)
 
@@ -23,7 +24,7 @@ export function HouseholdScreen({ initialError }: { initialError?: string | null
     setBusy(true)
     setError(null)
     try {
-      await (creating ? household.create(name, passcode) : household.join(name, passcode))
+      await (creating ? household.create(name, passcode, displayName) : household.join(name, passcode, displayName))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
       setBusy(false)
@@ -79,6 +80,17 @@ export function HouseholdScreen({ initialError }: { initialError?: string | null
               autoComplete={creating ? 'new-password' : 'current-password'}
               spellCheck={false}
               onChange={(e) => setPasscode(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <input
+              aria-label="Your name (optional)"
+              placeholder="Your name (optional)"
+              value={displayName}
+              maxLength={40}
+              autoCapitalize="words"
+              autoComplete="given-name"
+              onChange={(e) => setDisplayName(e.target.value)}
             />
           </div>
         </div>

@@ -3,6 +3,7 @@ import { createStore, type Store } from './store'
 
 const TOKEN_KEY = 'syncDeviceToken'
 const HOUSEHOLD_KEY = 'syncHouseholdName'
+const DISPLAY_NAME_KEY = 'syncDisplayName'
 const LAST_SYNCED_KEY = 'syncLastSyncedAt'
 const TUTORIAL_KEY = 'hasSeenOnboardingTutorial'
 // Keys from the pre-household proof of concept; wiped so the old shared secret does not linger.
@@ -13,6 +14,8 @@ export interface SyncSettings {
   /** Random per-device credential issued by the server when joining a household. */
   deviceToken: string
   householdName: string
+  /** Optional label for this device's member, stored in the Members tab to help debugging. */
+  displayName: string
   lastSyncedAt: number | null
   /** In-memory only, like the iOS app. */
   lastSyncError: string | null
@@ -31,12 +34,14 @@ export function createSettingsStore(storage: Storage, webAppURL: string = API_UR
       webAppURL,
       deviceToken: storage.getItem(TOKEN_KEY) ?? '',
       householdName: storage.getItem(HOUSEHOLD_KEY) ?? '',
+      displayName: storage.getItem(DISPLAY_NAME_KEY) ?? '',
       lastSyncedAt: Number.isFinite(stored) && stored > 0 ? stored : null,
       lastSyncError: null,
     },
     (s) => {
       storage.setItem(TOKEN_KEY, s.deviceToken)
       storage.setItem(HOUSEHOLD_KEY, s.householdName)
+      storage.setItem(DISPLAY_NAME_KEY, s.displayName)
       if (s.lastSyncedAt !== null) storage.setItem(LAST_SYNCED_KEY, String(s.lastSyncedAt))
       else storage.removeItem(LAST_SYNCED_KEY)
     },

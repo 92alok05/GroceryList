@@ -48,11 +48,12 @@ export const actions = {
   },
 }
 
-function startSession(session: HouseholdSession) {
+function startSession(session: HouseholdSession, displayName: string) {
   settingsStore.set((s) => ({
     ...s,
     deviceToken: session.deviceToken,
     householdName: session.householdName,
+    displayName,
     lastSyncedAt: null,
     lastSyncError: null,
   }))
@@ -61,17 +62,17 @@ function startSession(session: HouseholdSession) {
 
 export const household = {
   /** Creating keeps this device's items and uploads them to the new household. */
-  async create(name: string, passcode: string) {
-    const session = await createHouseholdApi(settingsStore.get().webAppURL).create(name, passcode)
+  async create(name: string, passcode: string, displayName = '') {
+    const session = await createHouseholdApi(settingsStore.get().webAppURL).create(name, passcode, displayName.trim())
     itemStore.set((list) => list.map((i) => ({ ...i, isSyncedToRemote: false })))
-    startSession(session)
+    startSession(session, displayName.trim())
   },
 
   /** Joining starts from the household's data, so leftover local items are discarded. */
-  async join(name: string, passcode: string) {
-    const session = await createHouseholdApi(settingsStore.get().webAppURL).join(name, passcode)
+  async join(name: string, passcode: string, displayName = '') {
+    const session = await createHouseholdApi(settingsStore.get().webAppURL).join(name, passcode, displayName.trim())
     itemStore.set([])
-    startSession(session)
+    startSession(session, displayName.trim())
   },
 
   async leave() {
@@ -81,7 +82,7 @@ export const household = {
       // Offline: the token is still dropped locally; the server-side session can be revoked later.
     }
     itemStore.set([])
-    settingsStore.set((s) => ({ ...s, deviceToken: '', householdName: '', lastSyncedAt: null, lastSyncError: null }))
+    settingsStore.set((s) => ({ ...s, deviceToken: '', householdName: '', displayName: '', lastSyncedAt: null, lastSyncError: null }))
   },
 }
 

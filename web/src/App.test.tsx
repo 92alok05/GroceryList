@@ -130,11 +130,13 @@ describe('household workflows', () => {
     expect(screen.getByText(/A special character/).textContent).toContain('○')
 
     fill('The Joshis', 'Fresh&Milk42')
+    fireEvent.change(screen.getByLabelText('Your name (optional)'), { target: { value: ' Alok ' } })
     expect(submit).toBeEnabled()
     fireEvent.click(submit)
 
     expect(await screen.findByRole('button', { name: /Store Mode/ })).toBeInTheDocument()
-    expect(JSON.parse(server.mock.calls[0][1]!.body as string)).toEqual({ action: 'createHousehold', name: 'The Joshis', passcode: 'Fresh&Milk42' })
+    expect(JSON.parse(server.mock.calls[0][1]!.body as string)).toEqual({ action: 'createHousehold', name: 'The Joshis', passcode: 'Fresh&Milk42', displayName: 'Alok' })
+    expect(localStorage.getItem('syncDisplayName')).toBe('Alok')
     expect(localStorage.getItem('syncDeviceToken')).toBe('tok-new')
     expect(localStorage.getItem('syncSharedSecret')).toBeNull()
   })

@@ -115,11 +115,11 @@ function toSession(body: Record<string, unknown>): HouseholdSession {
 /** Calls that need no session: they exchange a household name + passcode for a device token. */
 export function createHouseholdApi(webAppURL: string, fetchImpl: typeof fetch = fetch.bind(globalThis)) {
   return {
-    async create(name: string, passcode: string): Promise<HouseholdSession> {
-      return toSession(await post(webAppURL, { action: 'createHousehold', name, passcode }, fetchImpl))
+    async create(name: string, passcode: string, displayName = ''): Promise<HouseholdSession> {
+      return toSession(await post(webAppURL, { action: 'createHousehold', name, passcode, displayName }, fetchImpl))
     },
-    async join(name: string, passcode: string): Promise<HouseholdSession> {
-      return toSession(await post(webAppURL, { action: 'joinHousehold', name, passcode }, fetchImpl))
+    async join(name: string, passcode: string, displayName = ''): Promise<HouseholdSession> {
+      return toSession(await post(webAppURL, { action: 'joinHousehold', name, passcode, displayName }, fetchImpl))
     },
   }
 }

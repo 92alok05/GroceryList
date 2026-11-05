@@ -30,6 +30,12 @@ export function SettingsScreen() {
             <span>Household</span>
             <span className="secondary">{settings.householdName}</span>
           </div>
+          {settings.displayName && (
+            <div className="field">
+              <span>Your name</span>
+              <span className="secondary">{settings.displayName}</span>
+            </div>
+          )}
         </div>
         <p className="section-footer">
           Everyone in this household shares one grocery list. To add someone, give them the household name and passcode.
