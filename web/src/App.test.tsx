@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 async function freshApp() {
   vi.resetModules()
@@ -7,11 +7,21 @@ async function freshApp() {
   return render(<App />)
 }
 
+const signIn = () => {
+  localStorage.setItem('syncDeviceToken', 'tok')
+  localStorage.setItem('syncHouseholdName', 'The Joshis')
+}
+
 beforeEach(() => {
   localStorage.clear()
+  signIn()
   window.location.hash = ''
 })
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.doUnmock('./config')
+  vi.unstubAllGlobals()
+})
 
 describe('onboarding workflow', () => {
   it('shows once, can be skipped, and is replayable from Settings', async () => {
@@ -78,12 +88,75 @@ describe('item workflows', () => {
     expect(screen.getByText('Qty: 1')).toBeInTheDocument()
   })
 
-  it('disables Sync Now until configured', async () => {
+  it('disables Sync Now when the build has no server URL', async () => {
     await freshApp()
     fireEvent.click(screen.getByRole('button', { name: /Settings/ }))
     expect((await screen.findByText('Sync Now')).closest('button')).toBeDisabled()
-    fireEvent.change(screen.getByLabelText('Web App URL'), { target: { value: 'https://script.google.com/x' } })
-    fireEvent.change(screen.getByLabelText('Shared secret'), { target: { value: 'k' } })
-    expect(screen.getByText('Sync Now').closest('button')).toBeEnabled()
+    expect(screen.getByText('The Joshis')).toBeInTheDocument()
+  })
+})
+
+describe('household workflows', () => {
+  const session = { householdId: 'H', householdName: 'The Joshis', memberId: 'M', deviceToken: 'tok-new' }
+  const stubServer = (respond: (body: { action: string }) => object) => {
+    const fetchMock = vi.fn(async (_u: unknown, init?: RequestInit) => new Response(JSON.stringify(respond(JSON.parse(init!.body as string)))))
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+  const gateApp = async () => {
+    localStorage.clear()
+    vi.doMock('./config', () => ({ API_URL: 'https://script.google.com/macros/s/x/exec' }))
+    return freshApp()
+  }
+  const fill = (name: string, passcode: string) => {
+    fireEvent.change(screen.getByLabelText('Household name'), { target: { value: name } })
+    fireEvent.change(screen.getByLabelText('Passcode'), { target: { value: passcode } })
+  }
+
+  it('shows the join screen instead of the app until signed in', async () => {
+    await gateApp()
+    expect(screen.getByRole('tab', { name: 'Join household' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByRole('button', { name: /Store Mode/ })).toBeNull()
+  })
+
+  it('enforces passcode rules when creating, then enters the app', async () => {
+    const server = stubServer((b) => (b.action === 'createHousehold' ? session : { items: [] }))
+    await gateApp()
+    fireEvent.click(screen.getByRole('tab', { name: 'Create household' }))
+    const submit = screen.getByRole('button', { name: 'Create household' })
+
+    fill('The Joshis', 'weakpass')
+    expect(submit).toBeDisabled()
+    expect(screen.getByText(/A special character/).textContent).toContain('○')
+
+    fill('The Joshis', 'Fresh&Milk42')
+    expect(submit).toBeEnabled()
+    fireEvent.click(submit)
+
+    expect(await screen.findByRole('button', { name: /Store Mode/ })).toBeInTheDocument()
+    expect(JSON.parse(server.mock.calls[0][1]!.body as string)).toEqual({ action: 'createHousehold', name: 'The Joshis', passcode: 'Fresh&Milk42' })
+    expect(localStorage.getItem('syncDeviceToken')).toBe('tok-new')
+    expect(localStorage.getItem('syncSharedSecret')).toBeNull()
+  })
+
+  it('shows the server error when the passcode is wrong and stays on the join screen', async () => {
+    stubServer(() => ({ error: 'invalid household name or passcode' }))
+    await gateApp()
+    fill('The Joshis', 'Wrong&Pass1')
+    fireEvent.click(screen.getByRole('button', { name: 'Join household' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('invalid household name or passcode')
+    expect(localStorage.getItem('syncDeviceToken')).toBeNull()
+  })
+
+  it('leaves the household, clearing the token and local items', async () => {
+    stubServer(() => ({ success: true }))
+    vi.doMock('./config', () => ({ API_URL: 'https://script.google.com/macros/s/x/exec' }))
+    vi.stubGlobal('confirm', () => true)
+    await freshApp()
+    fireEvent.click(screen.getByRole('button', { name: /Settings/ }))
+    fireEvent.click(await screen.findByText('Leave household'))
+    expect(await screen.findByRole('tab', { name: 'Join household' })).toBeInTheDocument()
+    expect(localStorage.getItem('syncDeviceToken')).toBe('')
+    expect(JSON.parse(localStorage.getItem('groceryList.items')!).items).toEqual([])
   })
 })

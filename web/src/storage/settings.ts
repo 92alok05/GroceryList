@@ -1,36 +1,44 @@
+import { API_URL } from '../config'
 import { createStore, type Store } from './store'
 
-const URL_KEY = 'syncWebAppURL'
-const SECRET_KEY = 'syncSharedSecret'
+const TOKEN_KEY = 'syncDeviceToken'
+const HOUSEHOLD_KEY = 'syncHouseholdName'
 const LAST_SYNCED_KEY = 'syncLastSyncedAt'
 const TUTORIAL_KEY = 'hasSeenOnboardingTutorial'
+// Keys from the pre-household proof of concept; wiped so the old shared secret does not linger.
+const LEGACY_KEYS = ['syncWebAppURL', 'syncSharedSecret']
 
 export interface SyncSettings {
   webAppURL: string
-  sharedSecret: string
+  /** Random per-device credential issued by the server when joining a household. */
+  deviceToken: string
+  householdName: string
   lastSyncedAt: number | null
   /** In-memory only, like the iOS app. */
   lastSyncError: string | null
 }
 
-export function isConfigured(s: Pick<SyncSettings, 'webAppURL' | 'sharedSecret'>): boolean {
-  return s.webAppURL.trim() !== '' && s.sharedSecret.trim() !== ''
+export function isConfigured(s: Pick<SyncSettings, 'webAppURL' | 'deviceToken'>): boolean {
+  return s.webAppURL.trim() !== '' && s.deviceToken.trim() !== ''
 }
 
-/** The secret lives only in this device's localStorage; it is never part of the build. */
-export function createSettingsStore(storage: Storage): Store<SyncSettings> {
+/** The token lives only in this device's localStorage; it is never part of the build. */
+export function createSettingsStore(storage: Storage, webAppURL: string = API_URL): Store<SyncSettings> {
+  LEGACY_KEYS.forEach((k) => storage.removeItem(k))
   const stored = Number(storage.getItem(LAST_SYNCED_KEY))
   return createStore<SyncSettings>(
     {
-      webAppURL: storage.getItem(URL_KEY) ?? '',
-      sharedSecret: storage.getItem(SECRET_KEY) ?? '',
+      webAppURL,
+      deviceToken: storage.getItem(TOKEN_KEY) ?? '',
+      householdName: storage.getItem(HOUSEHOLD_KEY) ?? '',
       lastSyncedAt: Number.isFinite(stored) && stored > 0 ? stored : null,
       lastSyncError: null,
     },
     (s) => {
-      storage.setItem(URL_KEY, s.webAppURL)
-      storage.setItem(SECRET_KEY, s.sharedSecret)
+      storage.setItem(TOKEN_KEY, s.deviceToken)
+      storage.setItem(HOUSEHOLD_KEY, s.householdName)
       if (s.lastSyncedAt !== null) storage.setItem(LAST_SYNCED_KEY, String(s.lastSyncedAt))
+      else storage.removeItem(LAST_SYNCED_KEY)
     },
   )
 }

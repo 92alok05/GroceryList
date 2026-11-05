@@ -1,7 +1,7 @@
 import type { GroceryItem } from '../domain/item'
 import { coerceRemoteItem, toRemote, type RemoteItem } from './remote'
 
-export type SyncErrorKind = 'notConfigured' | 'invalidURL' | 'server' | 'transport'
+export type SyncErrorKind = 'notConfigured' | 'invalidURL' | 'server' | 'transport' | 'unauthorized'
 
 export class SyncError extends Error {
   constructor(
@@ -12,26 +12,33 @@ export class SyncError extends Error {
   }
 }
 
-export const NOT_CONFIGURED_MESSAGE =
-  "Sync isn't configured yet. Enter your Web App URL and secret in Settings."
+export const NOT_CONFIGURED_MESSAGE = "You haven't joined a household yet."
+export const SESSION_ENDED_MESSAGE = 'This device is no longer part of the household. Join again to keep syncing.'
 
 export interface ClientConfig {
   webAppURL: string
-  sharedSecret: string
+  deviceToken: string
+}
+
+export interface HouseholdSession {
+  householdId: string
+  householdName: string
+  memberId: string
+  deviceToken: string
 }
 
 const TIMEOUT_MS = 30_000
 
-function endpoint(config: ClientConfig): URL {
+function endpoint(webAppURL: string): URL {
   let url: URL
   try {
-    url = new URL(config.webAppURL.trim())
+    url = new URL(webAppURL.trim())
   } catch {
-    throw new SyncError('invalidURL', 'The Web App URL is not valid.')
+    throw new SyncError('invalidURL', 'The server URL is not valid.')
   }
-  // The shared secret must never travel over plain HTTP.
+  // Credentials must never travel over plain HTTP.
   if (url.protocol !== 'https:') {
-    throw new SyncError('invalidURL', 'The Web App URL must start with https://')
+    throw new SyncError('invalidURL', 'The server URL must start with https://')
   }
   return url
 }
@@ -47,13 +54,27 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
     throw new SyncError('transport', 'Unexpected response from server.')
   }
   const record = body as Record<string, unknown>
-  if (typeof record.error === 'string') throw new SyncError('server', `Server error: ${record.error}`)
+  if (record.error === 'unauthorized') throw new SyncError('unauthorized', SESSION_ENDED_MESSAGE)
+  if (typeof record.error === 'string') throw new SyncError('server', record.error)
   return record
 }
 
-async function request(input: URL, init: RequestInit | undefined, fetchImpl: typeof fetch) {
+/**
+ * Apps Script cannot answer CORS preflights, so every call is a POST sent as
+ * text/plain ("simple" request). Nothing sensitive is ever placed in the URL.
+ */
+async function post(webAppURL: string, payload: object, fetchImpl: typeof fetch) {
   try {
-    return await readJson(await fetchImpl(input, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) }))
+    const response = await fetchImpl(endpoint(webAppURL), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+      redirect: 'follow',
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer',
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    })
+    return await readJson(response)
   } catch (error) {
     if (error instanceof SyncError) throw error
     throw new SyncError('transport', error instanceof Error ? error.message : String(error))
@@ -61,42 +82,46 @@ async function request(input: URL, init: RequestInit | undefined, fetchImpl: typ
 }
 
 export function createSheetClient(config: ClientConfig, fetchImpl: typeof fetch = fetch.bind(globalThis)) {
-  // Apps Script cannot answer CORS preflights, so POSTs are sent as text/plain
-  // ("simple" requests). The script still parses the body as JSON.
-  const post = (payload: object) =>
-    request(
-      endpoint(config),
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ ...payload, token: config.sharedSecret }),
-        redirect: 'follow',
-        credentials: 'omit',
-        referrerPolicy: 'no-referrer',
-      },
-      fetchImpl,
-    )
+  const call = (payload: object) => post(config.webAppURL, { ...payload, token: config.deviceToken }, fetchImpl)
 
   return {
     async fetchAll(): Promise<RemoteItem[]> {
-      const url = endpoint(config)
-      url.searchParams.set('action', 'list')
-      url.searchParams.set('token', config.sharedSecret)
-      const body = await request(
-        url,
-        { credentials: 'omit', referrerPolicy: 'no-referrer' },
-        fetchImpl,
-      )
+      const body = await call({ action: 'list' })
       if (!Array.isArray(body.items)) throw new SyncError('transport', 'Unexpected response from server.')
       return body.items.map(coerceRemoteItem).filter((i): i is RemoteItem => i !== null)
     },
     async upsert(item: GroceryItem): Promise<void> {
-      await post({ action: 'upsert', item: toRemote(item) })
+      await call({ action: 'upsert', item: toRemote(item) })
     },
     async remove(id: string): Promise<void> {
-      await post({ action: 'delete', id })
+      await call({ action: 'delete', id })
+    },
+    async leave(): Promise<void> {
+      await call({ action: 'leave' })
     },
   }
 }
 
 export type SheetClient = ReturnType<typeof createSheetClient>
+
+function toSession(body: Record<string, unknown>): HouseholdSession {
+  const { householdId, householdName, memberId, deviceToken } = body
+  if (![householdId, householdName, memberId, deviceToken].every((v) => typeof v === 'string' && v !== '')) {
+    throw new SyncError('transport', 'Unexpected response from server.')
+  }
+  return body as unknown as HouseholdSession
+}
+
+/** Calls that need no session: they exchange a household name + passcode for a device token. */
+export function createHouseholdApi(webAppURL: string, fetchImpl: typeof fetch = fetch.bind(globalThis)) {
+  return {
+    async create(name: string, passcode: string): Promise<HouseholdSession> {
+      return toSession(await post(webAppURL, { action: 'createHousehold', name, passcode }, fetchImpl))
+    },
+    async join(name: string, passcode: string): Promise<HouseholdSession> {
+      return toSession(await post(webAppURL, { action: 'joinHousehold', name, passcode }, fetchImpl))
+    },
+  }
+}
+
+export type HouseholdApi = ReturnType<typeof createHouseholdApi>

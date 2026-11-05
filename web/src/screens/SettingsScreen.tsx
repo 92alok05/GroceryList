@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { settingsStore, sync, tutorialStore } from '../appState'
+import { household, settingsStore, sync, tutorialStore } from '../appState'
 import { Icon } from '../components/icons'
 import { isConfigured } from '../storage/settings'
 import { useStore } from '../storage/store'
@@ -14,42 +14,25 @@ export function SettingsScreen() {
     setSyncing(false)
   }
 
+  const leave = () => {
+    if (window.confirm(`Leave "${settings.householdName}"? This clears the list on this device.`)) void household.leave()
+  }
+
   return (
     <section className="screen">
       <header className="nav-bar large">
         <h1>Settings</h1>
       </header>
       <div className="scroll">
-        <h4 className="section-header">Google Sheet Sync</h4>
+        <h4 className="section-header">Household</h4>
         <div className="group">
           <div className="field">
-            <input
-              type="url"
-              aria-label="Web App URL"
-              placeholder="Web App URL"
-              value={settings.webAppURL}
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              onChange={(e) => settingsStore.set((s) => ({ ...s, webAppURL: e.target.value }))}
-            />
-          </div>
-          <div className="field">
-            <input
-              type="password"
-              aria-label="Shared secret"
-              placeholder="Shared secret"
-              value={settings.sharedSecret}
-              autoCapitalize="none"
-              autoCorrect="off"
-              autoComplete="off"
-              spellCheck={false}
-              onChange={(e) => settingsStore.set((s) => ({ ...s, sharedSecret: e.target.value }))}
-            />
+            <span>Household</span>
+            <span className="secondary">{settings.householdName}</span>
           </div>
         </div>
         <p className="section-footer">
-          Paste the Web App URL and shared secret from your deployed Google Apps Script. Every family member should enter the same values on their phone. See README for setup steps.
+          Everyone in this household shares one grocery list. To add someone, give them the household name and passcode.
         </p>
 
         <div className="group">
@@ -71,6 +54,13 @@ export function SettingsScreen() {
             <span>Replay Tutorial</span>
           </button>
         </div>
+
+        <div className="group">
+          <button className="field action destructive" onClick={leave}>
+            <span>Leave household</span>
+          </button>
+        </div>
+        <p className="section-footer">Leaving removes this device from the household and clears its local list. Your household's data stays safe in the sheet.</p>
       </div>
     </section>
   )

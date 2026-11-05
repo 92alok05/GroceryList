@@ -1,6 +1,7 @@
-import { tutorialStore } from './appState'
+import { settingsStore, tutorialStore } from './appState'
 import { TabBar } from './components/TabBar'
 import { useHashRoute } from './hooks'
+import { HouseholdScreen } from './screens/HouseholdScreen'
 import { ItemListScreen } from './screens/ItemListScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { StoreChecklistScreen } from './screens/StoreChecklistScreen'
@@ -11,6 +12,7 @@ import { useStore } from './storage/store'
 export function App() {
   const [route, navigate] = useHashRoute()
   const tutorial = useStore(tutorialStore)
+  const settings = useStore(settingsStore)
 
   let screen
   if (route.startsWith('/stores/')) {
@@ -23,10 +25,12 @@ export function App() {
     screen = <ItemListScreen />
   }
 
+  const signedIn = settings.deviceToken !== ''
+
   return (
     <div className="app">
-      <main>{screen}</main>
-      <TabBar route={route} navigate={navigate} />
+      <main>{signedIn ? screen : <HouseholdScreen initialError={settings.lastSyncError} />}</main>
+      {signedIn && <TabBar route={route} navigate={navigate} />}
       {tutorial.isShowing && <TutorialScreen onFinish={() => tutorialStore.markSeen()} />}
     </div>
   )

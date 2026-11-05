@@ -139,3 +139,11 @@ main { flex: 1; min-height: 0; display: flex; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--separator); }
 .dot.active { background: var(--label); opacity: 0.8; }
 .primary-button { margin: 0 24px calc(24px + env(safe-area-inset-bottom)); padding: 16px; border-radius: 14px; background: var(--blue); color: #fff; font-weight: 600; text-align: center; }
+
+/* Household join/create */
+.segmented { display: flex; margin: 8px 16px 20px; padding: 2px; border-radius: 9px; background: rgba(118, 118, 128, 0.12); }
+.segmented button { flex: 1; text-align: center; padding: 6px 4px; border-radius: 7px; font-size: 14px; font-weight: 500; }
+.segmented button.active { background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); }
+.rules { list-style: none; margin: -14px 32px 16px; padding: 0; font-size: 13px; color: var(--secondary); }
+.rules li.met { color: var(--green); }
+.field.destructive { color: var(--red); }

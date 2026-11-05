@@ -4,7 +4,7 @@ import { createItemStore, ITEMS_KEY, loadItems } from '../storage/itemStore'
 import { createSettingsStore } from '../storage/settings'
 import { planSync } from './merge'
 import { toRemote, type RemoteItem } from './remote'
-import { createSheetClient, type SheetClient } from './sheetClient'
+import { createHouseholdApi, createSheetClient, SESSION_ENDED_MESSAGE, SyncError, type SheetClient } from './sheetClient'
 import { createSyncService } from './syncService'
 
 const T = Date.parse('2026-03-01T10:00:00.000Z')
@@ -63,16 +63,17 @@ function json(body: unknown) {
 }
 
 describe('sheetClient', () => {
-  const cfg = { webAppURL: 'https://script.google.com/macros/s/x/exec', sharedSecret: 's3cret' }
+  const cfg = { webAppURL: 'https://script.google.com/macros/s/x/exec', deviceToken: 'tok-123' }
 
-  it('lists via GET with action and token and coerces Sheets types', async () => {
-    const fetchImpl = vi.fn(() =>
+  it('lists via POST with the token in the body (never the URL) and coerces Sheets types', async () => {
+    const fetchImpl = vi.fn((_u: unknown, _i?: RequestInit) =>
       json({ items: [{ id: 'A', name: 'Eggs', recommendedStore: 'S', recommendedQuantity: 18, cadence: 'Weekly', customCadenceDays: 1, isChecked: 'TRUE', lastCheckedDate: null, updatedAt: iso(T) }, null] }),
     )
     const items = await createSheetClient(cfg, fetchImpl as unknown as typeof fetch).fetchAll()
-    const url = String((fetchImpl.mock.calls[0] as unknown[])[0])
-    expect(url).toContain('action=list')
-    expect(url).toContain('token=s3cret')
+    const [url, init] = fetchImpl.mock.calls[0] as [URL, RequestInit]
+    expect(String(url)).toBe(cfg.webAppURL)
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({ action: 'list', token: 'tok-123' })
     expect(items).toHaveLength(1)
     expect(items[0]).toMatchObject({ recommendedQuantity: '18', isChecked: true })
   })
@@ -82,12 +83,18 @@ describe('sheetClient', () => {
     await createSheetClient(cfg, fetchImpl as unknown as typeof fetch).remove('A')
     const init = fetchImpl.mock.calls[0][1] as RequestInit
     expect((init.headers as Record<string, string>)['Content-Type']).toMatch(/^text\/plain/)
-    expect(JSON.parse(init.body as string)).toEqual({ action: 'delete', id: 'A', token: 's3cret' })
+    expect(JSON.parse(init.body as string)).toEqual({ action: 'delete', id: 'A', token: 'tok-123' })
   })
 
-  it('surfaces server errors and refuses non-https URLs', async () => {
-    const bad = vi.fn(() => json({ error: 'unauthorized' }))
-    await expect(createSheetClient(cfg, bad as unknown as typeof fetch).fetchAll()).rejects.toThrow('Server error: unauthorized')
+  it('surfaces server errors, flags a rejected token, and refuses non-https URLs', async () => {
+    const denied = vi.fn(() => json({ error: 'unauthorized' }))
+    const err = await createSheetClient(cfg, denied as unknown as typeof fetch).fetchAll().catch((e) => e)
+    expect(err).toBeInstanceOf(SyncError)
+    expect(err).toMatchObject({ kind: 'unauthorized', message: SESSION_ENDED_MESSAGE })
+
+    const other = vi.fn(() => json({ error: 'item too large' }))
+    await expect(createSheetClient(cfg, other as unknown as typeof fetch).fetchAll()).rejects.toThrow('item too large')
+
     const never = vi.fn()
     await expect(
       createSheetClient({ ...cfg, webAppURL: 'http://example.com' }, never as unknown as typeof fetch).fetchAll(),
@@ -96,11 +103,35 @@ describe('sheetClient', () => {
   })
 })
 
+describe('householdApi', () => {
+  const url = 'https://script.google.com/macros/s/x/exec'
+  const session = { householdId: 'H', householdName: 'The Joshis', memberId: 'M', deviceToken: 'tok' }
+
+  it('creates and joins with name and passcode, returning the session', async () => {
+    const fetchImpl = vi.fn((_u: unknown, _i?: RequestInit) => json(session))
+    const api = createHouseholdApi(url, fetchImpl as unknown as typeof fetch)
+    expect(await api.create('The Joshis', 'Fresh&Milk42')).toEqual(session)
+    expect(await api.join('The Joshis', 'Fresh&Milk42')).toEqual(session)
+    const bodies = fetchImpl.mock.calls.map((c) => JSON.parse((c[1] as RequestInit).body as string))
+    expect(bodies).toEqual([
+      { action: 'createHousehold', name: 'The Joshis', passcode: 'Fresh&Milk42' },
+      { action: 'joinHousehold', name: 'The Joshis', passcode: 'Fresh&Milk42' },
+    ])
+  })
+
+  it('passes server rejections through and rejects malformed sessions', async () => {
+    const wrong = vi.fn(() => json({ error: 'invalid household name or passcode' }))
+    await expect(createHouseholdApi(url, wrong as unknown as typeof fetch).join('x', 'y')).rejects.toThrow('invalid household name or passcode')
+    const malformed = vi.fn(() => json({ householdName: 'x' }))
+    await expect(createHouseholdApi(url, malformed as unknown as typeof fetch).join('x', 'y')).rejects.toThrow('Unexpected response')
+  })
+})
+
 describe('syncService', () => {
   function setup(client: Partial<SheetClient>) {
     const items = createItemStore(new MemoryStorage())
     const settings = createSettingsStore(new MemoryStorage())
-    settings.set((s) => ({ ...s, webAppURL: 'https://x', sharedSecret: 'k' }))
+    settings.set((s) => ({ ...s, webAppURL: 'https://x', deviceToken: 'k', householdName: 'Home' }))
     const service = createSyncService({
       items,
       settings,
@@ -114,7 +145,7 @@ describe('syncService', () => {
     const items = createItemStore(new MemoryStorage())
     const settings = createSettingsStore(new MemoryStorage())
     await createSyncService({ items, settings }).syncAll()
-    expect(settings.get().lastSyncError).toMatch(/isn't configured/)
+    expect(settings.get().lastSyncError).toMatch(/haven't joined/)
   })
 
   it('pulls, pushes unsynced items and records lastSyncedAt', async () => {
@@ -126,6 +157,17 @@ describe('syncService', () => {
     expect(items.get().every((i) => i.isSyncedToRemote)).toBe(true)
     expect(upsert).toHaveBeenCalledTimes(1)
     expect(settings.get()).toMatchObject({ lastSyncedAt: T, lastSyncError: null })
+  })
+
+  it('drops the session when the server rejects the device token', async () => {
+    const { items, settings, service } = setup({
+      fetchAll: async () => {
+        throw new SyncError('unauthorized', SESSION_ENDED_MESSAGE)
+      },
+    })
+    items.set([local()])
+    await service.syncAll()
+    expect(settings.get()).toMatchObject({ deviceToken: '', householdName: '', lastSyncError: SESSION_ENDED_MESSAGE })
   })
 
   it('records transport errors without losing local data', async () => {

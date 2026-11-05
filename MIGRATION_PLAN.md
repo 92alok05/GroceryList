@@ -135,7 +135,12 @@ Complexity: S/M/L.
 
 Static host with HTTPS: Cloudflare Pages, Netlify, or GitHub Pages (note: this repo is public; the bundle contains no secrets, so that is acceptable, but the hosted URL is guessable). Set `VITE_BASE` for sub-path hosting (e.g. `/GroceryList/`). Family installs via Safari → Share → Add to Home Screen.
 
-Optional hardening needing a backend change (not done): move `list` to `POST`, per-person tokens, rate limiting.
+**Update: household model (implemented).** The shared-secret proof of concept was replaced by households:
+- Sheet tabs: `Households` (name, salted passcode hash, lockout counters), `Members` (hashed per-device token, revocation) and `GroceryItems` (+ `householdId` column).
+- The passcode is only used to create or join a household. The server then issues a random device token; the web app stores only that token.
+- Passcode rule: 8+ characters with a letter, a number and a special character (enforced on client and server). 5 wrong attempts lock a household for 15 minutes, with a global failed-join throttle.
+- `list` moved to `POST`, so no credential is ever in a URL. Every item operation is scoped to the caller's household.
+- The Web App URL is baked in at build time (`VITE_API_URL`) instead of typed by users. The iOS app keeps working through an optional `LEGACY_SECRET` mapped to one household (`adoptLegacyRows`).
 
 ## 5. Risks / open questions for you
 

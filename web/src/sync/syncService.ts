@@ -2,7 +2,7 @@ import type { GroceryItem } from '../domain/item'
 import { isConfigured, type SyncSettings } from '../storage/settings'
 import type { Store } from '../storage/store'
 import { planSync } from './merge'
-import { createSheetClient, NOT_CONFIGURED_MESSAGE, type SheetClient } from './sheetClient'
+import { createSheetClient, NOT_CONFIGURED_MESSAGE, SyncError, type SheetClient } from './sheetClient'
 
 export interface SyncDeps {
   items: Store<GroceryItem[]>
@@ -20,6 +20,15 @@ export function createSyncService(deps: SyncDeps) {
   const makeClient = deps.clientFactory ?? ((c: SyncSettings) => createSheetClient(c))
   const now = deps.now ?? Date.now
   const setError = (lastSyncError: string | null) => settings.set((s) => ({ ...s, lastSyncError }))
+
+  /** Records a failure; a rejected token means this device was removed, so drop the session. */
+  const fail = (error: unknown, prefix = '') => {
+    if (error instanceof SyncError && error.kind === 'unauthorized') {
+      settings.set((s) => ({ ...s, deviceToken: '', householdName: '', lastSyncError: error.message }))
+      return
+    }
+    setError(prefix + messageOf(error))
+  }
 
   const markSynced = (id: string) =>
     items.set((list) => list.map((i) => (i.id === id && !i.isSyncedToRemote ? { ...i, isSyncedToRemote: true } : i)))
@@ -44,7 +53,7 @@ export function createSyncService(deps: SyncDeps) {
       }
       settings.set((s) => ({ ...s, lastSyncedAt: now(), lastSyncError: null }))
     } catch (error) {
-      setError(messageOf(error))
+      fail(error)
     }
   }
 
@@ -56,7 +65,7 @@ export function createSyncService(deps: SyncDeps) {
         await makeClient(settings.get()).upsert(item)
         markSynced(item.id)
       } catch (error) {
-        setError(`Failed to sync item ${item.id}: ${messageOf(error)}`)
+        fail(error, `Failed to sync item ${item.id}: `)
       }
     })()
   }
@@ -67,7 +76,7 @@ export function createSyncService(deps: SyncDeps) {
       try {
         await makeClient(settings.get()).remove(id)
       } catch (error) {
-        setError(`Failed to sync deletion: ${messageOf(error)}`)
+        fail(error, 'Failed to sync deletion: ')
       }
     })()
   }
